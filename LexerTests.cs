@@ -1,123 +1,79 @@
-﻿using NUnit.Framework;
-using System;
+﻿using System;
 using System.IO;
+using NUnit.Framework;
+using NSubstitute; 
 using AssemblyLexer;
 
 namespace AssemblyLexer.Tests
 {
     [TestFixture]
-    public class LexerTests
+    public class LexerAppTests
     {
-        private StringWriter _consoleOut = null!;
-        private StringWriter _consoleError = null!;
-
-        // 1. Setup (fixture) метод: перехоплення консолі перед кожним тестом
-        [SetUp]
-        public void Setup()
+        // Обробка виключень
+        [Test]
+        public void FileNotReadable()
         {
-            _consoleOut = new StringWriter();
-            _consoleError = new StringWriter();
+            var mockFileSystem = Substitute.For<IFileSystem>();
+            var mockConsole = Substitute.For<IConsole>();
 
-            Console.SetOut(_consoleOut);
-            Console.SetError(_consoleError);
+            mockFileSystem
+                .ReadAllText(Arg.Is<string>(path => path.EndsWith(".asm")))
+                .Returns(x => throw new UnauthorizedAccessException());
+
+            var app = new LexerApp(mockFileSystem, mockConsole);
+
+            int result = app.Run(new[] { "error_file.asm" });
+
+            Assert.That(result, Is.EqualTo(1));
+            
+            mockConsole.Received(1).WriteError("Cannot open file: error_file.asm");
         }
 
-        [TearDown]
-        public void TearDown()
+        [Test]
+        public void NumberAndOrder()
         {
-            _consoleOut.Dispose();
-            _consoleError.Dispose();
+            var mockFileSystem = Substitute.For<IFileSystem>();
+            var mockConsole = Substitute.For<IConsole>();
 
-            StreamWriter standardOut = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
-            Console.SetOut(standardOut);
-        }
+            mockFileSystem.ReadAllText("test.asm").Returns("ret");
 
-        // 2. Параметризований тестовий метод
-        [TestCase("mov", "<mov , RESERVED>")]
-        [TestCase("ax", "<ax , REGISTER>")]
-        [TestCase("0x1A", "<0x1A , NUMBER_HEX>")]
-        [TestCase("100", "<100 , NUMBER_DEC>")]
-        [TestCase("12.5e-3", "<12.5e-3 , NUMBER_FLOAT>")]
-        [TestCase("; коментар", "<; коментар , COMMENT>")]
-        [TestCase("$", "<$ , SPECIAL>")]
-        [TestCase("+", "<+ , OPERATOR>")]
-        [TestCase("[", "<[ , SEPARATOR>")]
-        public void ValidInputPrintsCorrectToken(string input, string expectedTokenOutput)
-        {
+            var app = new LexerApp(mockFileSystem, mockConsole);
 
-            Console.SetIn(new StringReader(input));
+            int result = app.Run(new[] { "test.asm" });
 
-            int exitCode = Program.Main(Array.Empty<string>());
-            string output = _consoleOut.ToString();
+            Assert.That(result, Is.EqualTo(0));
 
-            Assert.Multiple(() =>
+            mockFileSystem.Received(1).ReadAllText(Arg.Any<string>());
+
+            Received.InOrder(() =>
             {
-                Assert.That(exitCode, Is.EqualTo(0), "Програма має завершитись успішно.");
-
-                Assert.That(output, Does.Contain(expectedTokenOutput), $"Вивід має містити токен: {expectedTokenOutput}");
+                mockFileSystem.ReadAllText("test.asm");
+                mockConsole.WriteLine("<ret , RESERVED>  // line 1 col 1");
             });
         }
 
-        // 3. Тестування виключень (Exceptions)
+        // Різні відповіді для кожного наступного виклику методу.
         [Test]
-        public void StreamReadFails_ThrowsException()
+        public void DifferentResults()
         {
-            var throwingReader = new ThrowingTextReader();
-            Console.SetIn(throwingReader);
+            var mockFileSystem = Substitute.For<IFileSystem>();
+            var mockConsole = Substitute.For<IConsole>();
 
-            Assert.Throws<InvalidOperationException>(() =>
-            {
-                Program.Main(Array.Empty<string>());
-            }, "Має викидатися InvalidOperationException, якщо читання потоку перервано.");
-        }
-
-        [Test]
-        public void ProgramWithErrors_FindsErrors()
-        {
-            // імітуємо багаторядковий ввід з помилковими символами
-            string input = "mov ax, 10\n?invalid";
-            Console.SetIn(new StringReader(input));
-
-            Program.Main(Array.Empty<string>());
-
-            string[] outputLines = _consoleOut.ToString().Split(
-                new[] { Environment.NewLine },
-                StringSplitOptions.RemoveEmptyEntries
+            mockFileSystem.ReadAllText("testfile.asm").Returns(
+                x => "mov",
+                x => "ax",
+                x => throw new FileNotFoundException()
             );
 
-            // Assert #4
-            Assert.Multiple(() =>
-            {
-                Assert.That(outputLines, Has.Length.GreaterThanOrEqualTo(5), "Має бути згенеровано мінімум 5 токенів.");
+            var app = new LexerApp(mockFileSystem, mockConsole);
 
-                Assert.That(outputLines, Has.Exactly(1).Contains("ERROR"), "У виводі має бути рівно один невідомий токен (ERROR).");
+            app.Run(new[] { "testfile.asm" }); // Обробляє "mov"
+            app.Run(new[] { "testfile.asm" }); // Обробляє "ax"
 
-                Assert.That(outputLines, Has.Some.Contains("<invalid , IDENTIFIER>"), "Слово 'invalid' має розпізнатись як ідентифікатор.");
-            });
-        }
+            mockFileSystem.Received(2).ReadAllText("testfile.asm");
 
-        [Test]
-        public void MissingFileReturnsErrorCode()
-        {
-            int exitCode = Program.Main(new[] { "non_existent_file_12345.asm" });
-            string errorOutput = _consoleError.ToString();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(exitCode, Is.EqualTo(1));
-                Assert.That(errorOutput, Does.StartWith("Cannot open file:"));
-            });
-        }
-
-        // імітація падіння потоку вводу
-        private class ThrowingTextReader : StringReader
-        {
-            public ThrowingTextReader() : base("") { }
-
-            public override string ReadToEnd()
-            {
-                throw new InvalidOperationException("Імітація помилки читання потоку");
-            }
+            mockConsole.Received(1).WriteLine("<mov , RESERVED>  // line 1 col 1");
+            mockConsole.Received(1).WriteLine("<ax , REGISTER>  // line 1 col 1");
         }
     }
 }

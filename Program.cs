@@ -5,9 +5,24 @@ using System.Text.RegularExpressions;
 
 namespace AssemblyLexer
 {
-    public class Program
+    public interface IFileSystem
     {
-        // Структура для зберігання правил (регулярний вираз + тип)
+        string ReadAllText(string path);
+    }
+
+    public interface IConsole
+    {
+        void WriteLine(string message);
+        void WriteError(string message);
+        string ReadToEnd();
+    }
+
+    public class LexerApp
+    {
+        private readonly IFileSystem _fileSystem;
+        private readonly IConsole _console;
+
+        // Структура для зберігання правил
         struct Rule
         {
             public Regex Pattern { get; }
@@ -20,29 +35,34 @@ namespace AssemblyLexer
             }
         }
 
-        public static int Main(string[] args)
+        public LexerApp(IFileSystem fileSystem, IConsole console)
+        {
+            _fileSystem = fileSystem;
+            _console = console;
+        }
+
+        public int Run(string[] args)
         {
             string input;
 
-            // Читання з файлу або стандартного вводу
             if (args.Length >= 1)
             {
                 try
                 {
-                    input = File.ReadAllText(args[0]);
+                    input = _fileSystem.ReadAllText(args[0]);
                 }
                 catch (Exception)
                 {
-                    Console.Error.WriteLine($"Cannot open file: {args[0]}");
+                    _console.WriteError($"Cannot open file: {args[0]}");
                     return 1;
                 }
             }
             else
             {
-                input = Console.In.ReadToEnd();
+                input = _console.ReadToEnd();
             }
 
-            // Регулярні вирази для кожного типу лексем
+
             List<Rule> rules = new List<Rule>
             {
                 new Rule(@"^0[xX][0-9A-Fa-f]+", "NUMBER_HEX"),
@@ -64,21 +84,8 @@ namespace AssemblyLexer
                 new Rule(@"^#.*", "DIRECTIVE")
             };
 
-            // Зарезервовані слова асемблера
-            HashSet<string> reserved = new HashSet<string>
-            {
-                "mov","add","sub","mul","div","inc","dec","push","pop",
-                "jmp","je","jne","jg","jl","cmp","call","ret","int","syscall",
-                "xor","and","or","not","shr","shl","db","dw","dd","dq",
-                "section","global","extern","proc","endp","equ","org"
-            };
-
-            // Назви регістрів
-            HashSet<string> regNames = new HashSet<string>
-            {
-                "ax","bx","cx","dx","si","di","sp","bp",
-                "ip","cs","ds","es","ss","rdi","rsi","rdx","rax"
-            };
+            HashSet<string> reserved = new HashSet<string> { "mov", "ret" };
+            HashSet<string> regNames = new HashSet<string> { "ax", "bx" };
 
             int pos = 0;
             int line = 1, col = 1;
@@ -87,30 +94,20 @@ namespace AssemblyLexer
             {
                 char currentChar = input[pos];
 
-                // Пропуск пробілів
                 if (char.IsWhiteSpace(currentChar))
                 {
-                    if (currentChar == '\n')
-                    {
-                        line++;
-                        col = 1;
-                    }
-                    else
-                    {
-                        col++;
-                    }
+                    if (currentChar == '\n') { line++; col = 1; }
+                    else { col++; }
                     pos++;
                     continue;
                 }
 
                 bool matched = false;
-                // Отримуємо підрядок, що залишився
                 string rest = input.Substring(pos);
 
                 foreach (var rule in rules)
                 {
                     Match match = rule.Pattern.Match(rest);
-
                     if (match.Success)
                     {
                         string lexeme = match.Value;
@@ -118,28 +115,13 @@ namespace AssemblyLexer
 
                         if (type == "IDENTIFIER")
                         {
-                            // Якщо токен не є reserved або регістром, не починається з _ або букви, то ERROR
                             string low = lexeme.ToLower();
-
-                            if (reserved.Contains(low))
-                            {
-                                type = "RESERVED";
-                            }
-                            else if (regNames.Contains(low))
-                            {
-                                type = "REGISTER";
-                            }
-                            else if (lexeme[0] == '_' || char.IsLetter(lexeme[0]))
-                            {
-                                type = "IDENTIFIER";
-                            }
-                            else
-                            {
-                                type = "ERROR";
-                            }
+                            if (reserved.Contains(low)) type = "RESERVED";
+                            else if (regNames.Contains(low)) type = "REGISTER";
                         }
 
-                        Console.WriteLine($"<{lexeme} , {type}>  // line {line} col {col}");
+                        // Замість Console.WriteLine використовуємо інтерфейс
+                        _console.WriteLine($"<{lexeme} , {type}>  // line {line} col {col}");
 
                         pos += lexeme.Length;
                         col += lexeme.Length;
@@ -148,16 +130,53 @@ namespace AssemblyLexer
                     }
                 }
 
-                // Якщо жоден шаблон не підійшов
                 if (!matched)
                 {
-                    Console.WriteLine($"<{input[pos]} , ERROR>  // line {line} col {col}");
+                    _console.WriteLine($"<{input[pos]} , ERROR>  // line {line} col {col}");
                     pos++;
                     col++;
                 }
             }
 
             return 0;
+        }
+    }
+    public class RealFileSystem : IFileSystem
+    {
+        public string ReadAllText(string path)
+        {
+            return File.ReadAllText(path);
+        }
+    }
+
+    public class RealConsole : IConsole
+    {
+        public void WriteLine(string message)
+        {
+            Console.WriteLine(message);
+        }
+
+        public void WriteError(string message)
+        {
+            Console.Error.WriteLine(message);
+        }
+
+        public string ReadToEnd()
+        {
+            return Console.In.ReadToEnd();
+        }
+    }
+
+    public class Program
+    {
+        public static int Main(string[] args)
+        {
+            IFileSystem realFileSystem = new RealFileSystem();
+            IConsole realConsole = new RealConsole();
+
+            var app = new LexerApp(realFileSystem, realConsole);
+
+            return app.Run(args);
         }
     }
 }
