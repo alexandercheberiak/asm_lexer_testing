@@ -69,11 +69,13 @@ namespace AssemblyLexer.Tests
 
             app.Run(new[] { "testfile.asm" }); // Обробляє "mov"
             app.Run(new[] { "testfile.asm" }); // Обробляє "ax"
+            app.Run(new[] { "testfile.asm" });
 
-            mockFileSystem.Received(2).ReadAllText("testfile.asm");
+            mockFileSystem.Received(3).ReadAllText("testfile.asm");
 
             mockConsole.Received(1).WriteLine("<mov , RESERVED>  // line 1 col 1");
             mockConsole.Received(1).WriteLine("<ax , REGISTER>  // line 1 col 1");
+            mockConsole.Received(1).WriteError("Cannot open file: testfile.asm");
         }
     }
 }
