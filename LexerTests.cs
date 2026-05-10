@@ -10,6 +10,7 @@ namespace AssemblyLexer.Tests
     {
         private StringWriter _consoleOut = null!;
         private StringWriter _consoleError = null!;
+        private static readonly string[] NonExistentFileArgs = { "non_existent_file_12345.asm" };
 
         // 1. Setup (fixture) метод: перехоплення консолі перед кожним тестом
         [SetUp]
@@ -99,7 +100,7 @@ namespace AssemblyLexer.Tests
         [Test]
         public void MissingFileReturnsErrorCode()
         {
-            int exitCode = Program.Main(new[] { "non_existent_file_12345.asm" });
+            int exitCode = Program.Main(NonExistentFileArgs);
             string errorOutput = _consoleError.ToString();
 
             Assert.Multiple(() =>
@@ -110,7 +111,7 @@ namespace AssemblyLexer.Tests
         }
 
         // імітація падіння потоку вводу
-        private class ThrowingTextReader : StringReader
+        private sealed class ThrowingTextReader : StringReader
         {
             public ThrowingTextReader() : base("") { }
 

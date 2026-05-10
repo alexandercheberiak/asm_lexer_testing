@@ -7,7 +7,6 @@ namespace AssemblyLexer
 {
     public class Program
     {
-        // Структура для зберігання правил (регулярний вираз + тип)
         struct Rule
         {
             public Regex Pattern { get; }
@@ -20,66 +19,76 @@ namespace AssemblyLexer
             }
         }
 
+        private static readonly List<Rule> Rules = new List<Rule>
+        {
+            new Rule(@"^0[xX][0-9A-Fa-f]+", "NUMBER_HEX"),
+            new Rule(@"^[0-9A-Fa-f]+[hH]", "NUMBER_HEX"),
+            new Rule(@"^[0-9]+\.[0-9]*([eE][+-]?[0-9]+)?", "NUMBER_FLOAT"),
+            new Rule(@"^[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?", "NUMBER_FLOAT"),
+            new Rule(@"^[0-9]+", "NUMBER_DEC"),
+            new Rule(@"^""([^""\\]|\\.)*""", "STRING"),
+            new Rule(@"^'([^'\\]|\\.)'", "CHAR"),
+            new Rule(@"^;[^\n]*", "COMMENT"),
+            new Rule(@"^//[^\n]*", "COMMENT"),
+            new Rule(@"^/\*[\s\S]*?\*/", "COMMENT"),
+            new Rule(@"^\.[A-Za-z_][A-Za-z0-9_]*", "DIRECTIVE"),
+            new Rule(@"^%[A-Za-z_][A-Za-z0-9_]*", "DIRECTIVE"),
+            new Rule(@"^\$", "SPECIAL"),
+            new Rule(@"^[A-Za-z_][A-Za-z0-9_]*", "IDENTIFIER"),
+            new Rule(@"^[+\-*/=<>!&|^~]+", "OPERATOR"),
+            new Rule(@"^[,:()\[\]{}]", "SEPARATOR"),
+            new Rule(@"^#.*", "DIRECTIVE")
+        };
+
+        private static readonly HashSet<string> ReservedWords = new HashSet<string>
+        {
+            "mov","add","sub","mul","div","inc","dec","push","pop",
+            "jmp","je","jne","jg","jl","cmp","call","ret","int","syscall",
+            "xor","and","or","not","shr","shl","db","dw","dd","dq",
+            "section","global","extern","proc","endp","equ","org"
+        };
+
+        private static readonly HashSet<string> RegNames = new HashSet<string>
+        {
+            "ax","bx","cx","dx","si","di","sp","bp",
+            "ip","cs","ds","es","ss","rdi","rsi","rdx","rax"
+        };
+
         public static int Main(string[] args)
         {
-            string input;
-
-            // Читання з файлу або стандартного вводу
-            if (args.Length >= 1)
+            if (!TryGetInput(args, out string? input) || input == null)
             {
-                try
-                {
-                    input = File.ReadAllText(args[0]);
-                }
-                catch (Exception)
-                {
-                    Console.Error.WriteLine($"Cannot open file: {args[0]}");
-                    return 1;
-                }
+                string fileName = args.Length > 0 ? args[0] : "Standard Input";
+                Console.Error.WriteLine($"Cannot open file: {fileName}");
+                return 1;
             }
-            else
+
+            AnalyzeInput(input);
+            return 0;
+        }
+
+        private static bool TryGetInput(string[] args, out string? input)
+        {
+            if (args.Length == 0)
             {
                 input = Console.In.ReadToEnd();
+                return input != null;
             }
 
-            // Регулярні вирази для кожного типу лексем
-            List<Rule> rules = new List<Rule>
+            try
             {
-                new Rule(@"^0[xX][0-9A-Fa-f]+", "NUMBER_HEX"),
-                new Rule(@"^[0-9A-Fa-f]+[hH]", "NUMBER_HEX"),
-                new Rule(@"^[0-9]+\.[0-9]*([eE][+-]?[0-9]+)?", "NUMBER_FLOAT"),
-                new Rule(@"^[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?", "NUMBER_FLOAT"),
-                new Rule(@"^[0-9]+", "NUMBER_DEC"),
-                new Rule(@"^""([^""\\]|\\.)*""", "STRING"),
-                new Rule(@"^'([^'\\]|\\.)'", "CHAR"),
-                new Rule(@"^;[^\n]*", "COMMENT"),
-                new Rule(@"^//[^\n]*", "COMMENT"),
-                new Rule(@"^/\*[\s\S]*?\*/", "COMMENT"),
-                new Rule(@"^\.[A-Za-z_][A-Za-z0-9_]*", "DIRECTIVE"),
-                new Rule(@"^%[A-Za-z_][A-Za-z0-9_]*", "DIRECTIVE"),
-                new Rule(@"^\$", "SPECIAL"),
-                new Rule(@"^[A-Za-z_][A-Za-z0-9_]*", "IDENTIFIER"),
-                new Rule(@"^[+\-*/=<>!&|^~]+", "OPERATOR"),
-                new Rule(@"^[,:()\[\]{}]", "SEPARATOR"),
-                new Rule(@"^#.*", "DIRECTIVE")
-            };
-
-            // Зарезервовані слова асемблера
-            HashSet<string> reserved = new HashSet<string>
+                input = File.ReadAllText(args[0]);
+                return true;
+            }
+            catch
             {
-                "mov","add","sub","mul","div","inc","dec","push","pop",
-                "jmp","je","jne","jg","jl","cmp","call","ret","int","syscall",
-                "xor","and","or","not","shr","shl","db","dw","dd","dq",
-                "section","global","extern","proc","endp","equ","org"
-            };
+                input = null;
+                return false;
+            }
+        }
 
-            // Назви регістрів
-            HashSet<string> regNames = new HashSet<string>
-            {
-                "ax","bx","cx","dx","si","di","sp","bp",
-                "ip","cs","ds","es","ss","rdi","rsi","rdx","rax"
-            };
-
+        private static void AnalyzeInput(string input)
+        {
             int pos = 0;
             int line = 1, col = 1;
 
@@ -87,77 +96,70 @@ namespace AssemblyLexer
             {
                 char currentChar = input[pos];
 
-                // Пропуск пробілів
                 if (char.IsWhiteSpace(currentChar))
                 {
-                    if (currentChar == '\n')
-                    {
-                        line++;
-                        col = 1;
-                    }
-                    else
-                    {
-                        col++;
-                    }
-                    pos++;
+                    HandleWhitespace(currentChar, ref line, ref col, ref pos);
                     continue;
                 }
 
-                bool matched = false;
-                // Отримуємо підрядок, що залишився
-                string rest = input.Substring(pos);
-
-                foreach (var rule in rules)
+                if (TryMatchToken(input, pos, out string? lexeme, out string? type) && lexeme != null)
                 {
-                    Match match = rule.Pattern.Match(rest);
-
-                    if (match.Success)
-                    {
-                        string lexeme = match.Value;
-                        string type = rule.Type;
-
-                        if (type == "IDENTIFIER")
-                        {
-                            // Якщо токен не є reserved або регістром, не починається з _ або букви, то ERROR
-                            string low = lexeme.ToLower();
-
-                            if (reserved.Contains(low))
-                            {
-                                type = "RESERVED";
-                            }
-                            else if (regNames.Contains(low))
-                            {
-                                type = "REGISTER";
-                            }
-                            else if (lexeme[0] == '_' || char.IsLetter(lexeme[0]))
-                            {
-                                type = "IDENTIFIER";
-                            }
-                            else
-                            {
-                                type = "ERROR";
-                            }
-                        }
-
-                        Console.WriteLine($"<{lexeme} , {type}>  // line {line} col {col}");
-
-                        pos += lexeme.Length;
-                        col += lexeme.Length;
-                        matched = true;
-                        break;
-                    }
+                    Console.WriteLine($"<{lexeme} , {type}>  // line {line} col {col}");
+                    pos += lexeme.Length;
+                    col += lexeme.Length;
                 }
-
-                // Якщо жоден шаблон не підійшов
-                if (!matched)
+                else
                 {
-                    Console.WriteLine($"<{input[pos]} , ERROR>  // line {line} col {col}");
+                    Console.WriteLine($"<{currentChar} , ERROR>  // line {line} col {col}");
                     pos++;
                     col++;
                 }
             }
+        }
 
-            return 0;
+        private static void HandleWhitespace(char currentChar, ref int line, ref int col, ref int pos)
+        {
+            if (currentChar == '\n')
+            {
+                line++;
+                col = 1;
+            }
+            else
+            {
+                col++;
+            }
+            pos++;
+        }
+
+        private static bool TryMatchToken(string input, int pos, out string? lexeme, out string? type)
+        {
+            string rest = input.Substring(pos);
+
+            foreach (var rule in Rules)
+            {
+                Match match = rule.Pattern.Match(rest);
+                if (match.Success)
+                {
+                    lexeme = match.Value;
+                    type = rule.Type == "IDENTIFIER" ? ResolveIdentifierType(lexeme) : rule.Type;
+                    return true;
+                }
+            }
+
+            lexeme = null;
+            type = null;
+            return false;
+        }
+
+        private static string ResolveIdentifierType(string lexeme)
+        {
+            string low = lexeme.ToLower();
+
+            if (ReservedWords.Contains(low)) return "RESERVED";
+            if (RegNames.Contains(low)) return "REGISTER";
+            if (lexeme.Length > 0 && (lexeme[0] == '_' || char.IsLetter(lexeme[0]))) return "IDENTIFIER";
+            
+            return "ERROR";
         }
     }
 }

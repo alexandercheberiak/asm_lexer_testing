@@ -1,0 +1,10 @@
+﻿/home/alexander/Documents/testing-labs/asm_lexer_testing/LexerTests.cs
+/home/alexander/Documents/testing-labs/asm_lexer_testing/Program.cs
+/home/alexander/.nuget/packages/nunit3testadapter/6.2.0/build/net8.0/NUnit3.TestAdapter.pdb
+/home/alexander/.nuget/packages/nunit3testadapter/6.2.0/build/net8.0/nunit.engine.dll
+/home/alexander/.nuget/packages/nunit3testadapter/6.2.0/build/net8.0/nunit.engine.api.dll
+/home/alexander/.nuget/packages/nunit3testadapter/6.2.0/build/net8.0/nunit.engine.core.dll
+/home/alexander/.nuget/packages/nunit3testadapter/6.2.0/build/net8.0/testcentric.engine.metadata.dll
+/home/alexander/Documents/testing-labs/asm_lexer_testing/.gitignore
+/home/alexander/Documents/testing-labs/asm_lexer_testing/test.runsettings
+/home/alexander/.nuget/packages/nunit3testadapter/6.2.0/build/net8.0/NUnit3.TestAdapter.dll

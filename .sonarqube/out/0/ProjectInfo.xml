@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProjectInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
+  <ProjectName>asm_lexer_testing</ProjectName>
+  <ProjectLanguage>C#</ProjectLanguage>
+  <ProjectType>Product</ProjectType>
+  <ProjectGuid>f4f8b5a6-061c-48cd-864e-0e84682bd646</ProjectGuid>
+  <FullPath>/home/alexander/Documents/testing-labs/asm_lexer_testing/asm_lexer_testing.csproj</FullPath>
+  <IsExcluded>false</IsExcluded>
+  <AnalysisResultFiles>
+    <AnalysisResultFile Id="FilesToAnalyze" Location="/home/alexander/Documents/testing-labs/asm_lexer_testing/.sonarqube/conf/0/FilesToAnalyze.txt" />
+  </AnalysisResultFiles>
+  <AnalysisSettings>
+    <Property Name="sonar.cs.roslyn.reportFilePaths">/home/alexander/Documents/testing-labs/asm_lexer_testing/.sonarqube/out/0/Issues.json</Property>
+    <Property Name="sonar.cs.analyzer.projectOutPaths">/home/alexander/Documents/testing-labs/asm_lexer_testing/.sonarqube/out/0</Property>
+    <Property Name="sonar.cs.scanner.telemetry">/home/alexander/Documents/testing-labs/asm_lexer_testing/.sonarqube/out/0/Telemetry.json</Property>
+  </AnalysisSettings>
+  <Configuration>Debug</Configuration>
+  <Platform>AnyCPU</Platform>
+  <TargetFramework>net8.0</TargetFramework>
+</ProjectInfo>

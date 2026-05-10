@@ -1,0 +1,1 @@
+/home/alexander/Documents/testing-labs/asm_lexer_testing/.sonarqube/out/0
