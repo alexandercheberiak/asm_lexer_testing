@@ -2,5 +2,5 @@ projectKey=asm_lexer
 serverUrl=http://localhost:9000
 serverVersion=9.9.8.100196
 dashboardUrl=http://localhost:9000/dashboard?id=asm_lexer
-ceTaskId=AZ4Ssiv0eSaTad5owffR
-ceTaskUrl=http://localhost:9000/api/ce/task?id=AZ4Ssiv0eSaTad5owffR
+ceTaskId=AZ4Ss899eSaTad5owffS
+ceTaskUrl=http://localhost:9000/api/ce/task?id=AZ4Ss899eSaTad5owffS
